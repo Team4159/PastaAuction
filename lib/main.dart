@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,17 +7,26 @@ void main() async {
       url: 'https://bhueoihalnchbflzaseh.supabase.co',
       anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJodWVvaWhhbG5jaGJmbHphc2VoIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTc1ODM1MTUsImV4cCI6MjAxMzE1OTUxNX0.lnAvR3s3IIX8cQweaahpxwlSkqauqUT7b6Cdu7Cfchw');
+  Supabase.instance.client.realtime.channel("bids").on(RealtimeListenTypes.postgresChanges,
+      ChannelFilter(event: "*", schema: "public", table: "bids"), (p, [_]) {
+    if (p?["new"] == null) return;
+    if (p["new"]
+        case {
+          "bidderemail": String email,
+          "id": String _,
+          "item": int id,
+          "time": String _,
+          "value": int value
+        }) {
+      if (topbids[id]!.value.value != value) {
+        topbids[id]!.value = (email: email, value: value);
+      }
+    } else {
+      throw Exception("Malformed Data Recieved! ${p.map((k, v) => MapEntry(k, v.runtimeType))}");
+    }
+  }).subscribe();
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const App());
-  Supabase.instance.client.realtime.onMessage(print);
-  Supabase.instance.client.realtime.onError(print);
-  Supabase.instance.client.realtime
-      .channel("bids")
-      .on(RealtimeListenTypes.postgresChanges, ChannelFilter(schema: "public", table: "bids"), (p0,
-          [p]) {
-    print(p0);
-    print(p);
-  }).subscribe((n, [a]) => print(n));
 }
 
 class App extends StatelessWidget {
@@ -29,6 +37,9 @@ class App extends StatelessWidget {
       title: 'Pasta Auction',
       theme:
           ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.red), useMaterial3: true),
+      darkTheme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.red, brightness: Brightness.dark),
+          useMaterial3: true),
       home: MainPage());
 }
 
@@ -43,10 +54,16 @@ class MainPage extends StatelessWidget {
           automaticallyImplyLeading: false,
           centerTitle: true,
           excludeHeaderSemantics: true),
+      floatingActionButton: FloatingActionButton(
+          onPressed: () => viewMode.value = !viewMode.value,
+          child: ListenableBuilder(
+              listenable: viewMode,
+              builder: (context, _) =>
+                  Icon(viewMode.value ? Icons.width_normal_rounded : Icons.grid_view_rounded))),
       body: SafeArea(
           child: FutureBuilder(
               future: fetchItems(),
-              builder: (context, snapshot) => !snapshot.hasData
+              builder: (context, snapshot) => !snapshot.hasData || snapshot.data == null
                   ? snapshot.hasError
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -63,44 +80,90 @@ class MainPage extends StatelessWidget {
                           ? GridView.builder(
                               itemCount: snapshot.data!.length,
                               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 250),
-                              itemBuilder: (context, i) => GridTile(
-                                  footer: Tooltip(
-                                      message: snapshot.data![i].description,
-                                      child: ListenableBuilder(
-                                          listenable: topbids[snapshot.data![i].id]!,
-                                          builder: (context, _) {
-                                            Bid top = topbids[snapshot.data![i].id]!.value;
-                                            return Row(children: [
-                                              Text("\$${top.value}"),
-                                              const Expanded(child: SizedBox()),
-                                              Text(top.email)
-                                            ]);
-                                          })),
-                                  child: Stack(children: [
-                                    Text(snapshot.data![i].name),
-                                    snapshot.data![i].image
-                                  ])))
-                          : CarouselSlider.builder(
-                              itemCount: snapshot.data!.length,
-                              itemBuilder: (context, i, _) => Material(
-                                      child: Column(children: [
-                                    snapshot.data![i].image,
-                                    Text(snapshot.data![i].name),
-                                    if (snapshot.data![i].description?.isNotEmpty ?? false)
-                                      Text(snapshot.data![i].description!),
-                                    ListenableBuilder(
-                                        listenable: topbids[snapshot.data![i].id]!,
-                                        builder: (context, _) {
-                                          Bid top = topbids[snapshot.data![i].id]!.value;
-                                          return Row(children: [
-                                            Text("\$${top.value}"),
-                                            const Expanded(child: SizedBox()),
-                                            Text(top.email)
-                                          ]);
-                                        })
-                                  ])),
-                              options: CarouselOptions(enlargeCenterPage: true))))));
+                                  maxCrossAxisExtent: 300),
+                              physics: const BouncingScrollPhysics(
+                                  parent: AlwaysScrollableScrollPhysics()),
+                              itemBuilder: (context, i) => Card(
+                                  child: Padding(
+                                      padding: const EdgeInsets.all(18),
+                                      child: GridTile(
+                                          footer: Tooltip(
+                                              message: snapshot.data![i].description,
+                                              child: ListenableBuilder(
+                                                  listenable: topbids[snapshot.data![i].id]!,
+                                                  builder: (context, _) {
+                                                    Bid top = topbids[snapshot.data![i].id]!.value;
+                                                    return Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text("\$${top.value}",
+                                                              style: Theme.of(context)
+                                                                  .textTheme
+                                                                  .labelLarge),
+                                                          Expanded(
+                                                              child: Text(top.email,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                  textAlign: TextAlign.right,
+                                                                  style: Theme.of(context)
+                                                                      .textTheme
+                                                                      .labelLarge))
+                                                        ]);
+                                                  })),
+                                          child: Stack(alignment: Alignment.topCenter, children: [
+                                            Text(snapshot.data![i].name,
+                                                textAlign: TextAlign.center,
+                                                style: Theme.of(context).textTheme.titleMedium),
+                                            snapshot.data![i].image
+                                          ])))))
+                          : Center(
+                              child: CarouselSlider.builder(
+                                  itemCount: snapshot.data!.length,
+                                  itemBuilder: (context, i, _) => Card(
+                                      child: Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                              children: [
+                                                Expanded(child: snapshot.data![i].image),
+                                                Text(snapshot.data![i].name,
+                                                    textAlign: TextAlign.center,
+                                                    style: Theme.of(context).textTheme.titleLarge),
+                                                if (snapshot.data![i].description?.isNotEmpty ??
+                                                    false)
+                                                  Text(
+                                                      snapshot.data![i].description!
+                                                          .replaceAll("\n", " | "),
+                                                      textAlign: TextAlign.center,
+                                                      style: Theme.of(context).textTheme.bodyLarge),
+                                                ListenableBuilder(
+                                                    listenable: topbids[snapshot.data![i].id]!,
+                                                    builder: (context, _) {
+                                                      Bid top =
+                                                          topbids[snapshot.data![i].id]!.value;
+                                                      return Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text("\$${top.value}",
+                                                                style: Theme.of(context)
+                                                                    .textTheme
+                                                                    .labelLarge),
+                                                            Expanded(
+                                                                child: Text(top.email,
+                                                                    textAlign: TextAlign.right,
+                                                                    style: Theme.of(context)
+                                                                        .textTheme
+                                                                        .labelLarge))
+                                                          ]);
+                                                    })
+                                              ]))),
+                                  options: CarouselOptions(
+                                      enlargeCenterPage: true,
+                                      viewportFraction: 0.8,
+                                      enlargeFactor: 0.2,
+                                      aspectRatio: 4 / 5,
+                                      height: MediaQuery.of(context).size.width > 400
+                                          ? MediaQuery.of(context).size.width
+                                          : null)))))));
 }
 
 enum ItemCategory { games, miscellaneous, giftcards, sports }
@@ -109,17 +172,17 @@ typedef Item = ({int id, String name, String? description, ItemCategory category
 Future<List<Item>> fetchItems() async {
   PostgrestList resp = await Supabase.instance.client
       .from("items")
-      .select<PostgrestList>("id, name, description, category, storage.objects (name)")
+      .select<PostgrestList>("id, name, description, category, image")
       .order("id");
   List<Item> out = [];
-  for (Map<String, dynamic> _ in resp) {
-    if (resp
+  for (Map<String, dynamic> row in resp) {
+    if (row
         case {
           'id': int id,
           'name': String name,
           'description': String? description,
           'category': String category,
-          'image': String? imgfile
+          'image': String? imageid
         }) {
       category = category.toLowerCase().replaceAll(" ", "");
       out.add((
@@ -127,21 +190,25 @@ Future<List<Item>> fetchItems() async {
         name: name,
         description: description,
         category: ItemCategory.values.firstWhere((e) => e.name == category),
-        image: imgfile == null
-            ? const Center(child: Icon(Icons.image_not_supported_rounded, size: 48))
-            : CachedNetworkImage(
-                imageUrl: Supabase.instance.client.storage.from("items").getPublicUrl(imgfile))
+        image: //imgfile == null
+            //?
+            const Center(child: Icon(Icons.image_not_supported_rounded, size: 48))
+        //: CachedNetworkImage(
+        //    imageUrl: Supabase.instance.client.storage.from("items").getPublicUrl(imgfile))
       ));
     } else {
-      throw Exception("Malformed Data Recieved!");
+      throw Exception("Malformed Data Recieved! ${row.map((k, v) => MapEntry(k, v.runtimeType))}");
     }
+  }
+  if (topbids.length != out.length) {
+    await Future.forEach(
+        out.map((n) => n.id), (id) async => topbids[id] = ValueNotifier(await getItemTopBid(id)));
   }
   return out;
 }
 
 typedef Bid = ({String email, int value});
 final Map<int, ValueNotifier<Bid>> topbids = {};
-Future<Bid> getItemTopBid(int itemid) => Supabase.instance.client
-    .rpc("getitemtopbid", params: {"itemid": itemid})
-    .single()
-    .then((record) => (email: record.bidderemail as String, value: record.value as int));
+Future<Bid> getItemTopBid(int itemid) =>
+    Supabase.instance.client.rpc("getitemtopbid", params: {"itemid": itemid}).then((record) =>
+        (email: record["bidderemail"] as String? ?? "Starting Bid", value: record["value"] as int));
