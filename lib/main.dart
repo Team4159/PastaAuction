@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -104,7 +105,7 @@ class MainPage extends StatelessWidget {
 
 enum ItemCategory { games, miscellaneous, giftcards, sports }
 
-typedef Item = ({int id, String name, String? description, ItemCategory category, Image image});
+typedef Item = ({int id, String name, String? description, ItemCategory category, Widget image});
 Future<List<Item>> fetchItems() async {
   PostgrestList resp = await Supabase.instance.client
       .from("items")
@@ -127,8 +128,9 @@ Future<List<Item>> fetchItems() async {
         description: description,
         category: ItemCategory.values.firstWhere((e) => e.name == category),
         image: imgfile == null
-            ? Image.asset("assets/noimg.png")
-            : Image.network(Supabase.instance.client.storage.from("items").getPublicUrl(imgfile))
+            ? const Center(child: Icon(Icons.image_not_supported_rounded, size: 48))
+            : CachedNetworkImage(
+                imageUrl: Supabase.instance.client.storage.from("items").getPublicUrl(imgfile))
       ));
     } else {
       throw Exception("Malformed Data Recieved!");
