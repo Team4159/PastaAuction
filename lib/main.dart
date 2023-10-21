@@ -1,9 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_carousel_widget/flutter_carousel_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+late final SharedPreferences prefs;
+const double bidmargin = 1.1;
 
 void main() async {
   await Supabase.initialize(
@@ -13,6 +16,7 @@ void main() async {
   Supabase.instance.client.realtime.channel("bids").on(RealtimeListenTypes.postgresChanges,
       ChannelFilter(event: "*", schema: "public", table: "bids"), (p, [_]) {
     if (p?["new"] == null) return;
+    if ((p["new"] as Map).isEmpty) return; // can't handle deletes :/
     if (p["new"]
         case {
           "bidderemail": String email,
@@ -36,9 +40,6 @@ void main() async {
   runApp(const App());
 }
 
-late final SharedPreferences prefs;
-const double bidmargin = 1.1;
-
 class App extends StatelessWidget {
   const App({super.key});
 
@@ -57,7 +58,8 @@ class MainPage extends StatelessWidget {
   MainPage({super.key}) {
     viewMode.addListener(() => prefs.setBool("viewMode", viewMode.value));
   }
-  final ValueNotifier<bool> viewMode = ValueNotifier(prefs.getBool("viewMode") ?? false);
+  final ValueNotifier<bool> viewMode =
+      ValueNotifier(prefs.getBool("viewMode") ?? false); // "is grid"
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -105,43 +107,64 @@ class MainPage extends StatelessWidget {
                                           padding: const EdgeInsets.all(18),
                                           child: GridTile(
                                               child: Column(children: [
-                                                  Expanded(child: Stack(alignment: Alignment.topCenter, children: [
-                                                
-                                                snapshot.data![i].images[0], // TODO: add multi image
-                                                Text(snapshot.data![i].name,
-                                                    textAlign: TextAlign.center,
-                                                    
-                                                    style: Theme.of(context).textTheme.titleMedium!.copyWith(backgroundColor: Colors.black87))
-                                              ])),
-                                              const SizedBox(height: 9),
-                                              Tooltip(
-                                                  message: snapshot.data![i].description,
-                                                  triggerMode: TooltipTriggerMode.tap,
-                                                  child: ListenableBuilder(
-                                                      listenable: topbids[snapshot.data![i].id]!,
-                                                      builder: (context, _) {
-                                                        Bid top =
-                                                            topbids[snapshot.data![i].id]!.value;
-                                                        return Row(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Text("\$${top.value}",
-                                                                  style: Theme.of(context)
-                                                                      .textTheme
-                                                                      .labelLarge),
-                                                              Expanded(
-                                                                  child: Text(top.email,
-                                                                      overflow:
-                                                                          TextOverflow.ellipsis,
-                                                                      textAlign: TextAlign.right,
-                                                                      style: Theme.of(context)
-                                                                          .textTheme
-                                                                          .labelLarge))
-                                                            ]);
-                                                      }))
-                                              ]))))))
+                                            Expanded(
+                                                child: Stack(
+                                                    alignment: Alignment.topCenter,
+                                                    fit: StackFit.expand,
+                                                    children: [
+                                                  snapshot.data![i].images.isEmpty
+                                                      ? const MissingImage()
+                                                      : IgnorePointer(
+                                                          child: FlutterCarousel(
+                                                              items: snapshot.data![i].images,
+                                                              options: CarouselOptions(
+                                                                  autoPlay: true,
+                                                                  autoPlayInterval: Duration(
+                                                                      seconds: snapshot
+                                                                          .data![i].images.length),
+                                                                  viewportFraction: 1,
+                                                                  slideIndicator:
+                                                                      CircularStaticIndicator(
+                                                                          itemSpacing: 16,
+                                                                          indicatorRadius: 4),
+                                                                  physics:
+                                                                      const NeverScrollableScrollPhysics()))),
+                                                  Text(snapshot.data![i].name,
+                                                      textAlign: TextAlign.center,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleMedium!
+                                                          .copyWith(
+                                                              backgroundColor: Colors.black87))
+                                                ])),
+                                            const SizedBox(height: 9),
+                                            Tooltip(
+                                                message: snapshot.data![i].description,
+                                                triggerMode: TooltipTriggerMode.tap,
+                                                child: ListenableBuilder(
+                                                    listenable: topbids[snapshot.data![i].id]!,
+                                                    builder: (context, _) {
+                                                      Bid top =
+                                                          topbids[snapshot.data![i].id]!.value;
+                                                      return Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text("\$${top.value}",
+                                                                style: Theme.of(context)
+                                                                    .textTheme
+                                                                    .labelLarge),
+                                                            Expanded(
+                                                                child: Text(top.email,
+                                                                    overflow: TextOverflow.ellipsis,
+                                                                    textAlign: TextAlign.right,
+                                                                    style: Theme.of(context)
+                                                                        .textTheme
+                                                                        .labelLarge))
+                                                          ]);
+                                                    }))
+                                          ]))))))
                           : Center(
-                              child: CarouselSlider.builder(
+                              child: FlutterCarousel.builder(
                                   itemCount: snapshot.data!.length,
                                   itemBuilder: (context, i, _) => Card(
                                       clipBehavior: Clip.hardEdge,
@@ -155,7 +178,13 @@ class MainPage extends StatelessWidget {
                                               child: Column(
                                                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                                                   children: [
-                                                    Expanded(child: snapshot.data![i].images[0]), // TODO add multi image
+                                                    Expanded(
+                                                        child: snapshot.data![i].images.isEmpty
+                                                            ? const MissingImage()
+                                                            : snapshot.data![i].images.length == 1
+                                                                ? snapshot.data![i].images[0]
+                                                                : ManualCarousel(
+                                                                    snapshot.data![i].images)),
                                                     const SizedBox(height: 12),
                                                     Text(snapshot.data![i].name,
                                                         textAlign: TextAlign.center,
@@ -194,8 +223,10 @@ class MainPage extends StatelessWidget {
                                   options: CarouselOptions(
                                       enlargeCenterPage: true,
                                       viewportFraction: 0.8,
-                                      enlargeFactor: 0.2,
+                                      // enlargeFactor: 0.2,
                                       aspectRatio: 4 / 5,
+                                      showIndicator: false,
+                                      enableInfiniteScroll: true,
                                       initialPage: prefs.getInt("initialCarousel") ?? 0,
                                       onPageChanged: (i, _) => prefs.setInt("initialCarousel", i),
                                       height: MediaQuery.of(context).size.width > 400
@@ -291,9 +322,50 @@ class BidMenu extends StatelessWidget {
                       ])))));
 }
 
-enum ItemCategory { games, miscellaneous, giftcards, sports, dvds }
+class ManualCarousel extends StatelessWidget {
+  final List<Widget> images;
+  final ValueNotifier<int> page = ValueNotifier(0);
+  ManualCarousel(this.images, {super.key});
 
-typedef Item = ({int id, String name, String? description, ItemCategory category, List<Widget> images});
+  @override
+  Widget build(BuildContext context) => Stack(alignment: Alignment.center, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          IconButton.filledTonal(
+              onPressed: () => page.value = normalize(page.value - 1, 0, images.length),
+              icon: const Icon(Icons.chevron_left_rounded)),
+          IconButton.filledTonal(
+              onPressed: () => page.value = normalize(page.value + 1, 0, images.length),
+              icon: const Icon(Icons.chevron_right_rounded))
+        ]),
+        ListenableBuilder(
+            listenable: page,
+            builder: (context, _) => IndexedStack(index: page.value, children: images))
+      ]);
+}
+
+class MissingImage extends StatelessWidget {
+  const MissingImage({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      const Center(child: Icon(Icons.image_not_supported_rounded, size: 48));
+}
+
+int normalize(int val, int low, int high) {
+  if (val < low) return val + (high - low) * ((low - val) / (high - low).toDouble()).ceil();
+  if (val >= high) return (val - low) % (high - low) + low;
+  return val;
+}
+
+enum ItemCategory { games, giftcards, sports, dvds, miscellaneous, unknown }
+
+typedef Item = ({
+  int id,
+  String name,
+  String? description,
+  ItemCategory category,
+  List<Widget> images
+});
 Future<List<Item>> fetchItems() async {
   PostgrestList resp = await Supabase.instance.client
       .from("items")
@@ -314,11 +386,16 @@ Future<List<Item>> fetchItems() async {
         id: id,
         name: name,
         description: description,
-        category: ItemCategory.values.firstWhere((e) => e.name == category),
-        images: imagenames == null ?
-           [const Center(child: Icon(Icons.image_not_supported_rounded, size: 48))]
-        : imagenames.map((imagename) => CachedNetworkImage(
-           imageUrl: Supabase.instance.client.storage.from("itempics").getPublicUrl(imagename))).toList()
+        category: ItemCategory.values
+            .firstWhere((e) => e.name == category, orElse: () => ItemCategory.unknown),
+        images: imagenames
+                ?.map((imagename) => CachedNetworkImage(
+                    errorWidget: (context, err, _) =>
+                        Center(child: Icon(Icons.broken_image_outlined, color: Colors.red[800])),
+                    imageUrl:
+                        Supabase.instance.client.storage.from("itempics").getPublicUrl(imagename)))
+                .toList() ??
+            []
       ));
     } else {
       throw Exception("Malformed Data Recieved! ${row.map((k, v) => MapEntry(k, v.runtimeType))}");
