@@ -101,10 +101,6 @@ class ScaffoldShell extends StatelessWidget {
             return w == null
                 ? null
                 : MaterialPageRoute(settings: settings, builder: (context) => w);
-          },
-          onUnknownRoute: (settings) {
-            _navKey.currentState!.pushReplacementNamed("/grid");
-            return null;
           }));
 }
 
