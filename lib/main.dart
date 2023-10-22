@@ -91,7 +91,7 @@ class ScaffoldShell extends StatelessWidget {
                   labelBehavior: NavigationDestinationLabelBehavior.alwaysHide)),
       body: Navigator(
           key: _navKey,
-          initialRoute: "/grid",
+          initialRoute: const ["/grid", "/carousel", "/bids"][navIndex.value],
           onGenerateRoute: (settings) {
             Widget? w = const {
               "/grid": GridPage(),
