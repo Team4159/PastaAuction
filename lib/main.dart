@@ -93,10 +93,10 @@ class ScaffoldShell extends StatelessWidget {
           key: _navKey,
           initialRoute: const ["/grid", "/carousel", "/bids"][navIndex.value],
           onGenerateRoute: (settings) {
-            Widget? w = const {
+            Widget? w = {
               "/grid": GridPage(),
-              "/carousel": CarouselPage(),
-              "/bids": BidsPage()
+              "/carousel": const CarouselPage(),
+              "/bids": const BidsPage()
             }[settings.name];
             return w == null
                 ? null
