@@ -55,10 +55,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(MaterialApp(
       title: 'Pasta Auction',
-      theme:
-          ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.red), useMaterial3: true),
+      theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
+          inputDecorationTheme: const InputDecorationTheme(border: UnderlineInputBorder()),
+          useMaterial3: true),
       darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.red, brightness: Brightness.dark),
+          inputDecorationTheme: const InputDecorationTheme(border: UnderlineInputBorder()),
           useMaterial3: true),
       home: ScaffoldShell()));
 }

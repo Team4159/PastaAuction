@@ -39,14 +39,27 @@ class BidMenu extends StatelessWidget {
                                   flex: 3,
                                   child: TextFormField(
                                       initialValue: prefs.getString("email"),
-                                      decoration: const InputDecoration(
-                                          border: UnderlineInputBorder(), labelText: "Your Email"),
+                                      decoration: const InputDecoration(labelText: "Your Email"),
                                       validator: (value) =>
                                           (value?.isEmpty ?? true) ? "Required" : null,
                                       onSaved: (String? email) => email == null
                                           ? prefs.remove("email")
                                           : prefs.setString("email", email))),
                               const SizedBox(width: 20),
+                              if (item.msrp > topbids[item.id]!.value.value)
+                                Flexible(
+                                    flex: 1,
+                                    child: TextField(
+                                        readOnly: true,
+                                        controller:
+                                            TextEditingController(text: item.msrp.toString()),
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        decoration: const InputDecoration(
+                                            prefixText: r"$",
+                                            labelText: "Retail Value",
+                                            labelStyle: TextStyle(fontWeight: FontWeight.w500)))),
+                              if (item.msrp > topbids[item.id]!.value.value)
+                                const SizedBox(width: 15),
                               Flexible(
                                   flex: 1,
                                   child: ListenableBuilder(
@@ -57,9 +70,7 @@ class BidMenu extends StatelessWidget {
                                                     .ceil()
                                                     .toString(),
                                             decoration: const InputDecoration(
-                                                border: UnderlineInputBorder(),
-                                                prefixText: "\$",
-                                                labelText: "Bid Amount"),
+                                                prefixText: r"$", labelText: "Bid Amount"),
                                             inputFormatters: [
                                               FilteringTextInputFormatter.digitsOnly
                                             ],

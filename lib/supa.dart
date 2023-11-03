@@ -10,13 +10,14 @@ typedef Item = ({
   int id,
   String name,
   String? description,
+  int msrp,
   ItemCategory category,
   List<Widget> images
 });
 Future<List<Item>> fetchItems() async {
   var resp = await Supabase.instance.client
       .from("items")
-      .select<PostgrestList>("id, name, description, category, images")
+      .select<PostgrestList>("id, name, description, msrp, category, images")
       .order("id");
   List<Item> out = [];
   for (Map<String, dynamic> row in resp) {
@@ -25,6 +26,7 @@ Future<List<Item>> fetchItems() async {
           'id': int id,
           'name': String name,
           'description': String? description,
+          'msrp': int msrp,
           'category': String category,
           'images': List<dynamic>? imagenames
         }) {
@@ -33,14 +35,27 @@ Future<List<Item>> fetchItems() async {
         id: id,
         name: name,
         description: description,
+        msrp: msrp,
         category: ItemCategory.values
             .firstWhere((e) => e.name == category, orElse: () => ItemCategory.unknown),
         images: imagenames
-                ?.map((imagename) => CachedNetworkImage(
-                    errorWidget: (context, err, _) =>
-                        Center(child: Icon(Icons.broken_image_outlined, color: Colors.red[800])),
-                    imageUrl:
-                        Supabase.instance.client.storage.from("itempics").getPublicUrl(imagename)))
+                ?.map((imagename) => ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                        errorWidget: (context, err, _) => Center(
+                            child: Icon(Icons.broken_image_outlined, color: Colors.red[800])),
+                        progressIndicatorBuilder: (context, _, progress) =>
+                            Center(child: CircularProgressIndicator(value: progress.progress)),
+                        memCacheHeight: 250,
+                        memCacheWidth: 250,
+                        maxHeightDiskCache: 500,
+                        maxWidthDiskCache: 500,
+                        height: 500,
+                        width: 500,
+                        fit: BoxFit.cover,
+                        imageUrl: Supabase.instance.client.storage
+                            .from("itempics")
+                            .getPublicUrl(imagename))))
                 .toList() ??
             []
       ));
