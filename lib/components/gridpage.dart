@@ -74,16 +74,19 @@ class GridPage extends StatelessWidget {
                                                                     const NeverScrollableScrollPhysics()))),
                                             Text("#${filteredItems[i].id} ${filteredItems[i].name}",
                                                 textAlign: TextAlign.center,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleMedium!
-                                                    .copyWith(shadows: const [
-                                                  Shadow(
-                                                    offset: Offset(4.0, 4.0),
-                                                    blurRadius: 2.0,
-                                                    color: Colors.black,
-                                                  )
-                                                ]))
+                                                style:
+                                                    Theme.of(context).brightness == Brightness.dark
+                                                        ? Theme.of(context)
+                                                            .textTheme
+                                                            .titleMedium!
+                                                            .copyWith(shadows: const [
+                                                            Shadow(
+                                                              offset: Offset(4.0, 4.0),
+                                                              blurRadius: 2.0,
+                                                              color: Colors.black,
+                                                            )
+                                                          ])
+                                                        : Theme.of(context).textTheme.titleMedium)
                                           ])),
                                       const SizedBox(height: 9),
                                       Builder(builder: (context) {
