@@ -72,7 +72,7 @@ class GridPage extends StatelessWidget {
                                                                         indicatorRadius: 4),
                                                                 physics:
                                                                     const NeverScrollableScrollPhysics()))),
-                                            Text(filteredItems[i].name,
+                                            Text("#${filteredItems[i].id} ${filteredItems[i].name}",
                                                 textAlign: TextAlign.center,
                                                 style: Theme.of(context)
                                                     .textTheme
@@ -121,7 +121,13 @@ class GridPage extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
-                                          color: Colors.red.withAlpha(100),
+                                          color: HSVColor.fromAHSV(
+                                                  0.7,
+                                                  (120.0 * (filteredItems[i].msrp - 50) / 50.0)
+                                                      .clamp(0, 240),
+                                                  1,
+                                                  1)
+                                              .toColor(),
                                           blurRadius: 2,
                                           spreadRadius: 2)
                                     ]),

@@ -9,7 +9,7 @@ class CarouselPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var filteredItems = items.where((item) => item.msrp >= 20).toList();
+    var filteredItems = items.where((item) => item.msrp >= 40).toList();
     return Center(
         child: FlutterCarousel.builder(
             itemCount: filteredItems.length,
