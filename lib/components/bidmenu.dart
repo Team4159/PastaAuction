@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../bids.dart';
 import '../main.dart';
-import '../supa.dart' show Item;
+import '../items.dart' show Item;
 
 const double bidmargin = 1.1;
 
@@ -51,6 +51,8 @@ class BidMenu extends StatelessWidget {
                                     flex: 1,
                                     child: TextField(
                                         readOnly: true,
+                                        enableInteractiveSelection: false,
+                                        onTap: null,
                                         controller:
                                             TextEditingController(text: item.msrp.toString()),
                                         style: const TextStyle(fontWeight: FontWeight.bold),
@@ -90,11 +92,12 @@ class BidMenu extends StatelessWidget {
                               if (!_formkey.currentState!.validate()) return;
                               _formkey.currentState!.save();
                               if (stupid[true] == null) return;
-                              Supabase.instance.client.from("bids").insert({
-                                "item": item.id,
-                                "bidderemail": prefs.getString("email"),
-                                "value": stupid[true]
-                              }).then((value) {
+                              Bid(
+                                      item: item.id,
+                                      bidder: prefs.getString("email"),
+                                      value: stupid[true]!)
+                                  .submit()
+                                  .then((_) {
                                 _formkey.currentState!.reset();
                                 Navigator.pop(context);
                               }).catchError((e) {
