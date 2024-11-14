@@ -1,10 +1,10 @@
 import 'dart:collection' show LinkedHashMap;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:pastaauction/items.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-final topbids = <int, ValueNotifier<Bid>>{}; // fixme needs to be threadsafe
+final topbids = <int, ValueNotifier<Bid>>{}; // fixme not threadsafe
 
 class Bid {
   final int item;
@@ -30,72 +30,65 @@ class Bid {
       .insert({"item": item, "bidder": bidder, "value": value});
 }
 
-int _counter = 0;
-void subscribe(Function onError) {
-  _counter++;
-  Supabase.instance.client.realtime
-      .channel("schema-db-changes")
-      .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: "public",
-          table: "bids",
-          callback: (payload) {
-            var oi = payload.eventType == PostgresChangeEvent.insert
-                ? null
-                : Bid.fromRecord(payload.oldRecord);
-            var ni = payload.eventType == PostgresChangeEvent.delete
-                ? null
-                : Bid.fromRecord(payload.newRecord);
+void subscribe(void Function(Future<void> Function() retry, [Object? error]) onError) {
+  final channel = Supabase.instance.client.realtime.channel("schema-db-changes").onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: "public",
+      table: "bids",
+      callback: (payload) {
+        var oi = payload.eventType == PostgresChangeEvent.insert
+            ? null
+            : Bid.fromRecord(payload.oldRecord);
+        var ni = payload.eventType == PostgresChangeEvent.delete
+            ? null
+            : Bid.fromRecord(payload.newRecord);
 
-            int? itemid;
-            if (ni != null) {
-              // Insert & Update
-              if (ni.value > (topbids[ni.item]?.value.value ?? double.negativeInfinity)) {
-                print("* -> top bid for ${ni.item}");
-                topbids << ni;
-                return;
-              } else if (oi != null && oi == topbids[ni.item]!.value) {
-                // Update only
-                print("top bid -> underbid for ${ni.item}");
-                itemid = ni.item;
-                // don't return, continue executing
-              } else {
-                print("* -> underbid for ${ni.item}");
-                return;
-              }
-            } else {
-              // Delete
-              oi!;
-              if (oi.value < topbids[oi.item]!.value.value) {
-                print("underbid -> x for ${oi.item}");
-                return;
-              } else {
-                print("top bid -> x for ${oi.item}");
-                itemid = oi.item;
-                // don't return, continue executing
-              }
-            }
-            print("bid shakeup for $itemid");
-            Supabase.instance.client
-                .rpc("getitemtopbid", params: {"itemid": itemid})
-                .withConverter(Bid.fromRecord)
-                .then((bid) => topbids << bid);
-          })
-      .subscribe((status, o) {
-    switch (status) {
-      case RealtimeSubscribeStatus.subscribed:
-        return;
-      case RealtimeSubscribeStatus.timedOut:
-      case RealtimeSubscribeStatus.closed:
-        if (_counter >= 3) continue err;
-        return subscribe(onError);
-      err:
-      default:
-        onError(status, o);
-        throw RealtimeSubscribeException(status, o);
-    }
+        int? itemid;
+        if (ni != null) {
+          // Insert & Update
+          if (ni.value > (topbids[ni.item]?.value.value ?? double.negativeInfinity)) {
+            print("* -> top bid for ${ni.item}");
+            topbids << ni;
+            return;
+          } else if (oi != null && oi == topbids[ni.item]!.value) {
+            // Update only
+            print("top bid -> underbid for ${ni.item}");
+            itemid = ni.item;
+            // don't return, continue executing
+          } else {
+            print("* -> underbid for ${ni.item}");
+            return;
+          }
+        } else {
+          // Delete
+          oi!;
+          if (oi.value < topbids[oi.item]!.value.value) {
+            print("underbid -> x for ${oi.item}");
+            return;
+          } else {
+            print("top bid -> x for ${oi.item}");
+            itemid = oi.item;
+            // don't return, continue executing
+          }
+        }
+        print("bid shakeup for $itemid");
+        Supabase.instance.client
+            .rpc("getitemtopbid", params: {"itemid": itemid})
+            .withConverter(Bid.fromRecord)
+            .then((bid) => topbids << bid);
+      });
+  channel.subscribe((status, o) {
+    if (status == RealtimeSubscribeStatus.subscribed) return;
+    if (status == RealtimeSubscribeStatus.closed && o == null)
+      return; // don't report an error on .unsubscribe()
+    onError(
+        () => Future.wait([
+              channel.unsubscribe(),
+              reloadTopBids(),
+            ]).then((_) => subscribe(onError)),
+        RealtimeSubscribeException(status, o));
   });
-} // TODO announce
+}
 
 Future<Map<int, Bid>> reloadTopBids() => Supabase.instance.client
         .from("bids")

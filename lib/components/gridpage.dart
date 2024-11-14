@@ -1,4 +1,5 @@
-import 'dart:math' show pow;
+import 'dart:math' show log, pow;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -16,7 +17,6 @@ class GridPage extends StatefulWidget {
 }
 
 class _GridPageState extends State<GridPage> {
-  static const _SCALE = 8 / (150 * 150);
   late final TextEditingController searchTerm = TextEditingController();
   ItemCategory? searchCategory = null;
   late String sortMethod = sortingFunctions.keys.contains(prefs.getString("sort"))
@@ -56,7 +56,7 @@ class _GridPageState extends State<GridPage> {
                               for (var category in ItemCategory.values)
                                 DropdownMenuItem(
                                     child: ConstrainedBox(
-                                        constraints: BoxConstraints(maxWidth: 70),
+                                        constraints: BoxConstraints(maxWidth: 85),
                                         child: Text(
                                             category.name.substring(0, 1).toUpperCase() +
                                                 category.name.substring(1),
@@ -92,9 +92,8 @@ class _GridPageState extends State<GridPage> {
                   itemBuilder: (context, i) {
                     var item = filteredItems[i];
                     var topbid = topbids[item.id]!;
-                    return Card(
-                        elevation: item.msrp <= 50 ? 0 : _SCALE * pow(item.msrp - 50, 2),
-                        clipBehavior: Clip.hardEdge,
+                    final card = Card(
+                        clipBehavior: Clip.antiAlias,
                         child: InkWell(
                             onTap: () => showDialog(
                                 context: context,
@@ -163,6 +162,21 @@ class _GridPageState extends State<GridPage> {
                                                 .copyWith(color: Colors.grey))
                                       ]))
                             ])));
+                    return item.msrp <= 50
+                        ? card
+                        : DecoratedBox(
+                            decoration: ShapeDecoration(
+                                shape:
+                                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shadows: [
+                                  BoxShadow(
+                                      color: KToColor(
+                                          lerpDouble(1500, 15000, (item.msrp - 50) / 150)!),
+                                      blurRadius: lerpDouble(2, 4, item.msrp / 200)!,
+                                      spreadRadius: -1,
+                                      blurStyle: BlurStyle.normal)
+                                ]),
+                            child: card);
                   }))
         ]),
         floatingActionButton: FloatingActionButton.extended(
@@ -179,3 +193,60 @@ final Map<String, int Function(Item, Item)> sortingFunctions = {
   "A-Z": (a, b) => a.name.compareTo(b.name),
   "ID #": (a, b) => a.id - b.id
 };
+
+Color KToColor(double tempK) {
+  tempK /= 100;
+  double r, g, b;
+
+  if (tempK <= 66) {
+    r = 255;
+  } else {
+    r = tempK - 60;
+    r = 329.698727466 * pow(r, -0.1332047592);
+    if (r < 0) {
+      r = 0;
+    }
+    if (r > 255) {
+      r = 255;
+    }
+  }
+
+  if (tempK <= 66) {
+    g = tempK;
+    g = 99.4708025861 * log(g) - 161.1195681661;
+    if (g < 0) {
+      g = 0;
+    }
+    if (g > 255) {
+      g = 255;
+    }
+  } else {
+    g = tempK - 60;
+    g = 288.1221695283 * pow(g, -0.0755148492);
+    if (g < 0) {
+      g = 0;
+    }
+    if (g > 255) {
+      g = 255;
+    }
+  }
+
+  if (tempK >= 66) {
+    b = 255;
+  } else {
+    if (tempK <= 19) {
+      b = 0;
+    } else {
+      b = tempK - 10;
+      b = 138.5177312231 * log(b) - 305.0447927307;
+      if (b < 0) {
+        b = 0;
+      }
+      if (b > 255) {
+        b = 255;
+      }
+    }
+  }
+
+  return Color.fromARGB((tempK * 5.5).clamp(75, 255).round(), r.round(), g.round(), b.round());
+}

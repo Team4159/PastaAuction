@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 late Set<Item> items;
 
-enum ItemCategory { miscellaneous, vouchers, spirits, art }
+enum ItemCategory { miscellaneous, vouchers, spirits, art, recreation }
 
 class Item {
   final int id;

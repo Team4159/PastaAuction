@@ -76,12 +76,14 @@ class BidMenu extends StatelessWidget {
                                             inputFormatters: [
                                               FilteringTextInputFormatter.digitsOnly
                                             ],
-                                            validator: (value) => value == null
-                                                ? "Required"
-                                                : int.parse(value) >=
-                                                        topbids[item.id]!.value.value * bidmargin
-                                                    ? null
-                                                    : "Bid too low!",
+                                            validator: (value) {
+                                              if (value == null) return "Required";
+                                              int v = int.parse(value);
+                                              if (v > 2147483647) return "Bid too high!";
+                                              if (v < topbids[item.id]!.value.value * bidmargin)
+                                                return "Bid too low!";
+                                              return null; // "Bid just right!"
+                                            },
                                             onSaved: (value) => stupid[true] =
                                                 value == null ? null : int.parse(value),
                                           )))

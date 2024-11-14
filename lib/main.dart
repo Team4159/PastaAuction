@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:pastaauction/components/mybidspage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'components/gridpage.dart';
 import 'bids.dart' as bids;
+import 'components/gridpage.dart';
+import 'components/mybidspage.dart';
 import 'items.dart' as items;
 
 late final SharedPreferences prefs;
+late final GlobalKey<ScaffoldMessengerState> _scaffoldMessenger = GlobalKey();
 
 void main() async {
   // Start the DB connector
@@ -21,8 +22,8 @@ void main() async {
     SharedPreferences.getInstance().then((sp) => prefs = sp),
     items.loadItemList(),
     bids.reloadTopBids()
-  ]).then((_) => bids.fillStartBids());
-  bids.subscribe((context) => Scaffold);
+  ]);
+  bids.fillStartBids();
   // Start the App
   WidgetsFlutterBinding.ensureInitialized();
   runApp(MaterialApp(
@@ -33,5 +34,21 @@ void main() async {
       darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.red, brightness: Brightness.dark),
           inputDecorationTheme: const InputDecorationTheme(border: UnderlineInputBorder())),
+      scaffoldMessengerKey: _scaffoldMessenger,
       routes: {"/": (ctx) => GridPage(), "/bids": (ctx) => const MyBidsPage()}));
+  // Initialize the live feed
+  bids.subscribe((retry, [err]) => _scaffoldMessenger.currentState!.showSnackBar(SnackBar(
+      content: Text(err is RealtimeSubscribeException
+          ? prettyStatus[err.status]!
+          : err?.toString() ?? "Unknown Error"),
+      duration: Duration(days: 1),
+      showCloseIcon: true,
+      action: SnackBarAction(label: "retry", onPressed: retry))));
 }
+
+final prettyStatus = {
+  RealtimeSubscribeStatus.channelError: "Temporary Connection Error",
+  RealtimeSubscribeStatus.closed: "Disconnected: Server",
+  RealtimeSubscribeStatus.timedOut: "Disconnected: Timed Out",
+  RealtimeSubscribeStatus.subscribed: "Nominal (Ignore)"
+};
