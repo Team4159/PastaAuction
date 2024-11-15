@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 late Set<Item> items;
 
-enum ItemCategory { miscellaneous, vouchers, spirits, art, recreation }
+enum ItemCategory { miscellaneous, vouchers, spirits, art, recreation, food, unknown }
 
 class Item {
   final int id;
@@ -33,7 +33,8 @@ class Item {
       category = category.toLowerCase().replaceAll(" ", "");
       return Item._Item(id,
           name: name,
-          category: ItemCategory.values.firstWhere((i) => i.name == category),
+          category: ItemCategory.values
+              .firstWhere((i) => i.name == category, orElse: () => ItemCategory.unknown),
           images: [
             if (imagenames != null)
               for (String imagename in imagenames)
