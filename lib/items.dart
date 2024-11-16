@@ -46,11 +46,14 @@ class Item {
                         Center(child: CircularProgressIndicator(value: progress.progress)),
                     memCacheHeight: 256,
                     memCacheWidth: 256,
-                    maxHeightDiskCache: 512,
-                    maxWidthDiskCache: 512,
-                    height: 512,
-                    width: 512,
+                    maxHeightDiskCache: 500,
+                    maxWidthDiskCache: 500,
+                    height: 500,
+                    width: 500,
+                    useOldImageOnUrlChange: false,
                     fit: BoxFit.cover,
+                    filterQuality: FilterQuality.low,
+                    cacheKey: imagename,
                     imageUrl: imagename.startsWith("http")
                         ? imagename
                         : Supabase.instance.client.storage.from("itempics").getPublicUrl(imagename))
